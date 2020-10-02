@@ -1,5 +1,5 @@
-import Foundation
 import Apollo
+import Foundation
 
 struct LicenseInfo {
   let name: String
@@ -20,29 +20,33 @@ enum APIError: Error {
 
 class Network {
   private let accessToken: String
-  
+
   private lazy var networkTransport: RequestChainNetworkTransport = {
     let cache = InMemoryNormalizedCache()
     let store = ApolloStore(cache: cache)
     let client = URLSessionClient()
     let interceptorProvider = GitHubInterceptorProvider(store: store, client: client)
     let headers = [
-      "User-Agent": "SwiftPMLibraryLicenseGenerator/1.0.0", "Authorization": "Bearer \(self.accessToken)",
+      "User-Agent": "SwiftPMLibraryLicenseGenerator/1.0.0",
+      "Authorization": "Bearer \(self.accessToken)",
     ]
     let transport = RequestChainNetworkTransport(
       interceptorProvider: interceptorProvider,
       endpointURL: URL(string: "https://api.github.com/graphql")!, additionalHeaders: headers)
     return transport
   }()
-    
+
   private(set) lazy var client = ApolloClient(networkTransport: self.networkTransport)
-  
+
   init(accessToken: String) {
     self.accessToken = accessToken
   }
-  
-  func getRepositoryLicenseConditions(owner: String, name: String, resultHandler: @escaping (Result<LicenseInfo, Error>) -> Void) {
-    self.client.fetch(query: GetRepositoryLicenseConditionsQuery(owner: owner, name: name)) { result in
+
+  func getRepositoryLicenseConditions(
+    owner: String, name: String, resultHandler: @escaping (Result<LicenseInfo, Error>) -> Void
+  ) {
+    self.client.fetch(query: GetRepositoryLicenseConditionsQuery(owner: owner, name: name)) {
+      result in
       switch result {
       case .success(let graphQLResult):
         debugPrint("Result: \(graphQLResult)")
@@ -50,7 +54,9 @@ class Network {
           let conditions: [LicenseRule] = data.conditions
             .compactMap { $0 }
             .map { LicenseRule(key: $0.key, label: $0.label, description: $0.description) }
-          let licenseInfo = LicenseInfo(name: data.name, implementation: data.implementation, body: data.body, conditions: conditions)
+          let licenseInfo = LicenseInfo(
+            name: data.name, implementation: data.implementation, body: data.body,
+            conditions: conditions)
           resultHandler(.success(licenseInfo))
         } else {
           resultHandler(.failure(APIError.invalid))
