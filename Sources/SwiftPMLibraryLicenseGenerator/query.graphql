@@ -1,0 +1,14 @@
+query getRepositoryLicenseConditions($owner: String!, $name: String!) {
+  repository(owner: $owner, name: $name) {
+    licenseInfo {
+      name
+      conditions {
+        description
+        key
+        label
+      }
+      implementation
+      body
+    }
+  }
+}
