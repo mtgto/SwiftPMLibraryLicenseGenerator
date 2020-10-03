@@ -1,19 +1,6 @@
 import Apollo
 import Foundation
 
-struct LicenseInfo {
-  let name: String
-  let implementation: String?
-  let body: String
-  let conditions: [LicenseRule]
-}
-
-struct LicenseRule {
-  let key: String
-  let label: String
-  let description: String
-}
-
 enum APIError: Error {
   case invalid
 }

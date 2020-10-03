@@ -104,10 +104,13 @@ Publishers.MergeMany(licenseInfos)
   .collect()
   .sink(receiveCompletion: { completion in
     if case .failure(let error) = completion {
-      print(error)
+      print(error, to: &stderr)
     }
   }) { licenseInfos in
-    print(licenseInfos)
+    let encoder = JSONEncoder()
+    if let encoded = try? encoder.encode(licenseInfos), let json = String(data: encoded, encoding: .utf8) {
+      print(json)
+    }
     dispatchGroup.leave()
   }.store(in: &subscriptions)
 
