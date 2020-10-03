@@ -3,6 +3,7 @@ import Foundation
 // Structure of project.xcworkspace/xcshareddata/swiftpm/Package.resolved (JSON)
 struct ResolvedFileJSON: Decodable {
   let object: Pins
+  let version: UInt
 }
 
 struct Pins: Decodable {
