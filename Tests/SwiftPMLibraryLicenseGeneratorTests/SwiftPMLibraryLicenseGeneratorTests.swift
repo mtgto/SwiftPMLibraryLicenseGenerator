@@ -2,47 +2,45 @@ import XCTest
 
 import class Foundation.Bundle
 
+@testable import SwiftPMLibraryLicenseGeneratorCore
+
 final class SwiftPMLibraryLicenseGeneratorTests: XCTestCase {
-  func testExample() throws {
-    // This is an example of a functional test case.
-    // Use XCTAssert and related functions to verify your tests produce the correct
-    // results.
-
-    // Some of the APIs that we use below are available in macOS 10.13 and above.
-    guard #available(macOS 10.13, *) else {
-      return
+  private func assertValidRepositoryURL(
+    repositoryURL: URL, expectedOwner: String, expectedName: String
+  ) {
+    switch parseRepositoryURL(repositoryURL: repositoryURL) {
+    case .success((owner: let owner, name: let name)):
+      XCTAssertEqual(expectedOwner, owner)
+      XCTAssertEqual(expectedName, name)
+    case .failure(let error):
+      XCTFail("Error: \(error)")
     }
-
-    let fooBinary = productsDirectory.appendingPathComponent("SwiftPMLibraryLicenseGenerator")
-
-    let process = Process()
-    process.executableURL = fooBinary
-
-    let pipe = Pipe()
-    process.standardOutput = pipe
-
-    try process.run()
-    process.waitUntilExit()
-
-    let data = pipe.fileHandleForReading.readDataToEndOfFile()
-    let output = String(data: data, encoding: .utf8)
-
-    XCTAssertEqual(output, "Hello, world!\n")
   }
 
-  /// Returns path to the built products directory.
-  var productsDirectory: URL {
-    #if os(macOS)
-      for bundle in Bundle.allBundles where bundle.bundlePath.hasSuffix(".xctest") {
-        return bundle.bundleURL.deletingLastPathComponent()
-      }
-      fatalError("couldn't find the products directory")
-    #else
-      return Bundle.main.bundleURL
-    #endif
+  private func assertInvalidRepositoryURL(repositoryURL: URL) {
+    switch parseRepositoryURL(repositoryURL: repositoryURL) {
+    case .success((owner: _, name: _)):
+      XCTFail()
+    case .failure(_):
+      break
+    }
+  }
+
+  func testParseRepositoryURL() {
+    assertValidRepositoryURL(
+      repositoryURL: URL(string: "https://github.com/mtgto/SwiftPMLibraryLicenseGenerator.git")!,
+      expectedOwner: "mtgto", expectedName: "SwiftPMLibraryLicenseGenerator")
+    // domain may be capitalized
+    assertValidRepositoryURL(
+      repositoryURL: URL(string: "https://GiThUb.CoM/mtgto/SwiftPMLibraryLicenseGenerator.git")!,
+      expectedOwner: "mtgto", expectedName: "SwiftPMLibraryLicenseGenerator")
+    // github only
+    assertInvalidRepositoryURL(
+      repositoryURL: URL(string: "https://gitlab.com/inkscape/inkscape.git")!)
+
   }
 
   static var allTests = [
-    ("testExample", testExample)
+    ("testParseRepositoryURL", testParseRepositoryURL)
   ]
 }
