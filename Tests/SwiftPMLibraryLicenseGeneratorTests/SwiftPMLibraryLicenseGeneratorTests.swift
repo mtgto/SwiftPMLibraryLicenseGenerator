@@ -30,6 +30,10 @@ final class SwiftPMLibraryLicenseGeneratorTests: XCTestCase {
     assertValidRepositoryURL(
       repositoryURL: URL(string: "https://github.com/mtgto/SwiftPMLibraryLicenseGenerator.git")!,
       expectedOwner: "mtgto", expectedName: "SwiftPMLibraryLicenseGenerator")
+    // github allow repository url without ".git"
+    assertValidRepositoryURL(
+      repositoryURL: URL(string: "https://github.com/mtgto/SwiftPMLibraryLicenseGenerator")!,
+      expectedOwner: "mtgto", expectedName: "SwiftPMLibraryLicenseGenerator")
     // domain may be capitalized
     assertValidRepositoryURL(
       repositoryURL: URL(string: "https://GiThUb.CoM/mtgto/SwiftPMLibraryLicenseGenerator.git")!,
