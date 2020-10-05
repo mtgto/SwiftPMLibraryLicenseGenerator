@@ -33,11 +33,11 @@ func showUsage() {
 
 func parseRepositoryURL(repositoryURL: URL) -> Result<(owner: String, name: String), Error> {
   if repositoryURL.host?.lowercased() != "github.com" {
-    print("Skip  \(repositoryURL) which does not have GitHub domain")
+    print("Skip  \(repositoryURL) which does not have GitHub domain", to: &stderr)
     return .failure(GeneratorError.unsupportedPackage)
   }
   if repositoryURL.pathComponents.count != 3 {
-    print("Skip \(repositoryURL) which has invalid GitHub URL")
+    print("Skip \(repositoryURL) which has invalid GitHub URL", to: &stderr)
     return .failure(GeneratorError.unsupportedPackage)
   }
   let owner = repositoryURL.pathComponents[1]
@@ -78,12 +78,12 @@ public final class Generator {
     let licenseInfos = packages.map { package in
       Future<LicenseInfo, Error> { promise in
         guard let repositoryURLString = package.repositoryURL else {
-          print("Skip package \(package.name ?? "??") which has no repository URL")
+          print("Skip package \(package.name ?? "??") which has no repository URL", to: &stderr)
           return promise(.failure(GeneratorError.unsupportedPackage))
         }
         guard let repositoryURL = URL(string: repositoryURLString) else {
           print(
-            "Skip package \(package.name ?? "??") which has invalid URL: \(repositoryURLString)")
+            "Skip package \(package.name ?? "??") which has invalid URL: \(repositoryURLString)", to: &stderr)
           return promise(.failure(GeneratorError.unsupportedPackage))
         }
         guard
