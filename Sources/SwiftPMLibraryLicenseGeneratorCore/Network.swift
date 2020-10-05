@@ -36,7 +36,6 @@ class Network {
       result in
       switch result {
       case .success(let graphQLResult):
-        debugPrint("Result: \(graphQLResult)")
         if let data = graphQLResult.data?.repository?.licenseInfo {
           let conditions: [LicenseRule] = data.conditions
             .compactMap { $0 }
@@ -49,7 +48,6 @@ class Network {
           resultHandler(.failure(APIError.invalid))
         }
       case .failure(let error):
-        print("Error: \(error)")
         resultHandler(.failure(error))
       }
     }

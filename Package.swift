@@ -8,9 +8,15 @@ let package = Package(
   platforms: [
     .macOS(.v10_15)
   ],
+  products: [
+    .executable(name: "SwiftPMLibraryLicenseGenerator", targets: ["SwiftPMLibraryLicenseGenerator"])
+  ],
   dependencies: [
     // Dependencies declare other packages that this package depends on.
     // .package(url: /* package url */, from: "1.0.0"),
+    .package(
+      name: "swift-argument-parser", url: "https://github.com/apple/swift-argument-parser",
+      .upToNextMinor(from: "0.3.1")),
     .package(
       name: "Apollo", url: "https://github.com/apollographql/apollo-ios.git",
       .upToNextMinor(from: "0.34.1")),
@@ -26,7 +32,10 @@ let package = Package(
       dependencies: ["SwiftPMLibraryLicenseGeneratorCore"]),
     .target(
       name: "SwiftPMLibraryLicenseGeneratorCore",
-      dependencies: ["Apollo", "XcodeProj"]),
+      dependencies: [
+        .product(name: "ArgumentParser", package: "swift-argument-parser"), "Apollo", "XcodeProj",
+      ],
+      exclude: ["schema.json", "query.graphql"]),
     .testTarget(
       name: "SwiftPMLibraryLicenseGeneratorTests",
       dependencies: ["SwiftPMLibraryLicenseGenerator"]),

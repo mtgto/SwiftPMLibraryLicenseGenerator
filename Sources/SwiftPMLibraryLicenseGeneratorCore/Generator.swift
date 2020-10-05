@@ -1,10 +1,4 @@
-//
-//  Generator.swift
-//  SwiftPMLibraryLicenseGeneratorCore
-//
-//  Created by User on 2020/10/03.
-//
-
+import ArgumentParser
 import Combine
 import Foundation
 import XcodeProj
@@ -51,29 +45,57 @@ func parseRepositoryURL(repositoryURL: URL) -> Result<(owner: String, name: Stri
 
 public final class Generator {
   private let arguments: [String]
+  private let network: Network
 
   public init(arguments: [String] = CommandLine.arguments) {
     self.arguments = arguments
-  }
-
-  public func run() throws {
-    if self.arguments.count < 2 {
-      showUsage()
-      exit(EXIT_FAILURE)
-    }
-
-    let xcodeproj = try XcodeProj(pathString: self.arguments[1])
-    guard let packages = try xcodeproj.pbxproj.rootProject()?.packages else {
-      print("There is no packages", to: &stderr)
-      exit(EXIT_SUCCESS)
-    }
-
     guard let accessToken = ProcessInfo.processInfo.environment["GITHUB_TOKEN"] else {
       print("Error: env GITHUB_TOKEN is not set", to: &stderr)
       exit(EXIT_FAILURE)
     }
 
-    let network = Network(accessToken: accessToken)
+    self.network = Network(accessToken: accessToken)
+  }
+
+  func generatePublisher(packages: [XCRemoteSwiftPackageReference]) -> [Future<LicenseInfo, Error>]
+  {
+    let licenseInfos = packages.map { package in
+      Future<LicenseInfo, Error> { promise in
+        guard let repositoryURLString = package.repositoryURL else {
+          print("Skip package \(package.name ?? "??") which has no repository URL", to: &stderr)
+          return promise(.failure(GeneratorError.unsupportedPackage))
+        }
+        guard let repositoryURL = URL(string: repositoryURLString) else {
+          print(
+            "Skip package \(package.name ?? "??") which has invalid URL: \(repositoryURLString)",
+            to: &stderr)
+          return promise(.failure(GeneratorError.unsupportedPackage))
+        }
+        guard
+          case .success((owner: let owner, name: let name)) = parseRepositoryURL(
+            repositoryURL: repositoryURL)
+        else {
+          return promise(.failure(GeneratorError.unsupportedPackage))
+        }
+        self.network.getRepositoryLicenseConditions(owner: owner, name: name) { result in
+          switch result {
+          case .success(let licenseInfo):
+            return promise(.success(licenseInfo))
+          case .failure(let error):
+            return promise(.failure(error))
+          }
+        }
+      }
+    }
+    return licenseInfos
+  }
+
+  public func run(xcodeProjFilePath: String, outputFilePath: String) throws {
+    let xcodeproj = try XcodeProj(pathString: xcodeProjFilePath)
+    guard let packages = try xcodeproj.pbxproj.rootProject()?.packages else {
+      print("There is no packages", to: &stderr)
+      exit(EXIT_SUCCESS)
+    }
 
     let licenseInfos = packages.map { package in
       Future<LicenseInfo, Error> { promise in
@@ -83,7 +105,8 @@ public final class Generator {
         }
         guard let repositoryURL = URL(string: repositoryURLString) else {
           print(
-            "Skip package \(package.name ?? "??") which has invalid URL: \(repositoryURLString)", to: &stderr)
+            "Skip package \(package.name ?? "??") which has invalid URL: \(repositoryURLString)",
+            to: &stderr)
           return promise(.failure(GeneratorError.unsupportedPackage))
         }
         guard
@@ -92,7 +115,7 @@ public final class Generator {
         else {
           return promise(.failure(GeneratorError.unsupportedPackage))
         }
-        network.getRepositoryLicenseConditions(owner: owner, name: name) { result in
+        self.network.getRepositoryLicenseConditions(owner: owner, name: name) { result in
           switch result {
           case .success(let licenseInfo):
             return promise(.success(licenseInfo))
@@ -118,10 +141,8 @@ public final class Generator {
         }
       }) { licenseInfos in
         let encoder = JSONEncoder()
-        if let encoded = try? encoder.encode(licenseInfos),
-          let json = String(data: encoded, encoding: .utf8)
-        {
-          print(json)
+        if let encoded = try? encoder.encode(licenseInfos) {
+          try? encoded.write(to: URL(fileURLWithPath: outputFilePath))
         }
         dispatchGroup.leave()
       }.store(in: &subscriptions)
