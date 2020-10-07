@@ -4,7 +4,40 @@ import Foundation
 import XcodeProj
 
 enum GeneratorError: Error {
-  case unsupportedPackage, unknown
+  case unsupportedHost, badFormatURL
+}
+
+// The result of fetch
+struct PackageLicense: Encodable {
+  let package: XCRemoteSwiftPackageReference
+  let licenseInfo: Result<LicenseInfo, Error>
+  
+  enum CodingKeys: String, CodingKey {
+    case name
+    case repositoryURL
+    case error
+    case licenseInfo
+  }
+  
+  func encode(to encoder: Encoder) throws {
+    var container = encoder.container(keyedBy: CodingKeys.self)
+    try container.encode(package.name, forKey: .name)
+    try container.encode(package.repositoryURL, forKey: .repositoryURL)
+
+    switch self.licenseInfo {
+    case .success(let licenseInfo):
+      try container.encode(licenseInfo, forKey: .licenseInfo)
+    case .failure(let error):
+      switch error {
+      case GeneratorError.unsupportedHost:
+        try container.encode("Currently, it supports github only", forKey: .error)
+      case GeneratorError.badFormatURL:
+        try container.encode("repository URL of package has bad format or does not exists", forKey: .error)
+      default:
+        try container.encode(error.localizedDescription, forKey: .error)
+      }
+    }
+  }
 }
 
 // https://stackoverflow.com/a/46883516
@@ -21,18 +54,14 @@ struct StandardErrorOutputStream: TextOutputStream {
 
 var stderr = StandardErrorOutputStream()
 
-func showUsage() {
-  print("Usage: \(CommandLine.arguments[0]) /path/to/YourProject.pbxproj", to: &stderr)
-}
-
 func parseRepositoryURL(repositoryURL: URL) -> Result<(owner: String, name: String), Error> {
   if repositoryURL.host?.lowercased() != "github.com" {
-    print("Skip  \(repositoryURL) which does not have GitHub domain", to: &stderr)
-    return .failure(GeneratorError.unsupportedPackage)
+    print("[WARN] Skip  \(repositoryURL) which does not have GitHub domain", to: &stderr)
+    return .failure(GeneratorError.unsupportedHost)
   }
   if repositoryURL.pathComponents.count != 3 {
-    print("Skip \(repositoryURL) which has invalid GitHub URL", to: &stderr)
-    return .failure(GeneratorError.unsupportedPackage)
+    print("[WARN] Skip \(repositoryURL) which has invalid GitHub URL", to: &stderr)
+    return .failure(GeneratorError.badFormatURL)
   }
   let owner = repositoryURL.pathComponents[1]
 
@@ -57,37 +86,40 @@ public final class Generator {
     self.network = Network(accessToken: accessToken)
   }
 
-  func generatePublisher(packages: [XCRemoteSwiftPackageReference]) -> [Future<LicenseInfo, Error>]
-  {
-    let licenseInfos = packages.map { package in
-      Future<LicenseInfo, Error> { promise in
-        guard let repositoryURLString = package.repositoryURL else {
-          print("Skip package \(package.name ?? "??") which has no repository URL", to: &stderr)
-          return promise(.failure(GeneratorError.unsupportedPackage))
-        }
-        guard let repositoryURL = URL(string: repositoryURLString) else {
-          print(
-            "Skip package \(package.name ?? "??") which has invalid URL: \(repositoryURLString)",
-            to: &stderr)
-          return promise(.failure(GeneratorError.unsupportedPackage))
-        }
-        guard
-          case .success((owner: let owner, name: let name)) = parseRepositoryURL(
-            repositoryURL: repositoryURL)
-        else {
-          return promise(.failure(GeneratorError.unsupportedPackage))
-        }
-        self.network.getRepositoryLicenseConditions(owner: owner, name: name) { result in
-          switch result {
-          case .success(let licenseInfo):
-            return promise(.success(licenseInfo))
-          case .failure(let error):
-            return promise(.failure(error))
-          }
+  func generatePublisher(packages: [XCRemoteSwiftPackageReference]) -> AnyPublisher<PackageLicense, Never> {
+    let publisher = PassthroughSubject<PackageLicense, Never>()
+    packages.forEach { (package) in
+      guard let repositoryURLString = package.repositoryURL else {
+        print("Skip package \(package.name ?? "??") which has no repository URL", to: &stderr)
+        publisher.send(PackageLicense(package: package, licenseInfo: .failure(GeneratorError.badFormatURL)))
+        return
+      }
+      guard let repositoryURL = URL(string: repositoryURLString) else {
+        print(
+          "Skip package \(package.name ?? "??") which has invalid URL: \(repositoryURLString)",
+          to: &stderr)
+        publisher.send(PackageLicense(package: package, licenseInfo: .failure(GeneratorError.badFormatURL)))
+        return
+      }
+      guard
+        case .success((owner: let owner, name: let name)) = parseRepositoryURL(
+          repositoryURL: repositoryURL)
+      else {
+        publisher.send(PackageLicense(package: package, licenseInfo: .failure(GeneratorError.badFormatURL)))
+        return
+      }
+      self.network.getRepositoryLicenseConditions(owner: owner, name: name) { result in
+        switch result {
+        case .success(let licenseInfo):
+          publisher.send(PackageLicense(package: package, licenseInfo: .success(licenseInfo)))
+          return
+        case .failure(let error):
+          publisher.send(PackageLicense(package: package, licenseInfo: .failure(error)))
+          return
         }
       }
     }
-    return licenseInfos
+    return publisher.eraseToAnyPublisher()
   }
 
   public func run(xcodeProjFilePath: String, outputFilePath: String) throws {
@@ -96,56 +128,24 @@ public final class Generator {
       print("There is no packages", to: &stderr)
       exit(EXIT_SUCCESS)
     }
-
-    let licenseInfos = packages.map { package in
-      Future<LicenseInfo, Error> { promise in
-        guard let repositoryURLString = package.repositoryURL else {
-          print("Skip package \(package.name ?? "??") which has no repository URL", to: &stderr)
-          return promise(.failure(GeneratorError.unsupportedPackage))
-        }
-        guard let repositoryURL = URL(string: repositoryURLString) else {
-          print(
-            "Skip package \(package.name ?? "??") which has invalid URL: \(repositoryURLString)",
-            to: &stderr)
-          return promise(.failure(GeneratorError.unsupportedPackage))
-        }
-        guard
-          case .success((owner: let owner, name: let name)) = parseRepositoryURL(
-            repositoryURL: repositoryURL)
-        else {
-          return promise(.failure(GeneratorError.unsupportedPackage))
-        }
-        self.network.getRepositoryLicenseConditions(owner: owner, name: name) { result in
-          switch result {
-          case .success(let licenseInfo):
-            return promise(.success(licenseInfo))
-          case .failure(let error):
-            return promise(.failure(error))
-          }
-        }
-      }
-    }
-
+    
     print("There are \(packages.count) packages", to: &stderr)
 
+    let publisher = self.generatePublisher(packages: packages)
     var subscriptions = Set<AnyCancellable>()
 
     let dispatchGroup = DispatchGroup()
     dispatchGroup.enter()
-
-    Publishers.MergeMany(licenseInfos)
-      .collect()
-      .sink(receiveCompletion: { completion in
-        if case .failure(let error) = completion {
-          print(error, to: &stderr)
-        }
-      }) { licenseInfos in
+    
+    publisher.collect(packages.count)
+      .sink(receiveValue: { packageLicenses in
         let encoder = JSONEncoder()
-        if let encoded = try? encoder.encode(licenseInfos) {
+        if let encoded = try? encoder.encode(packageLicenses) {
           try? encoded.write(to: URL(fileURLWithPath: outputFilePath))
         }
+//        print(packageLicenses)
         dispatchGroup.leave()
-      }.store(in: &subscriptions)
+      }).store(in: &subscriptions)
 
     dispatchGroup.notify(queue: .main) {
       print("Done", to: &stderr)
