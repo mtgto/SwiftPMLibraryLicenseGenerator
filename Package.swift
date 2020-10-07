@@ -9,7 +9,7 @@ let package = Package(
     .macOS(.v10_15)
   ],
   products: [
-    .executable(name: "SwiftPMLibraryLicenseGenerator", targets: ["SwiftPMLibraryLicenseGenerator"])
+    .executable(name: "swift-pm-library-license-generator", targets: ["SwiftPMLibraryLicenseGenerator"])
   ],
   dependencies: [
     // Dependencies declare other packages that this package depends on.
