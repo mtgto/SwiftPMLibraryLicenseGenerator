@@ -86,8 +86,7 @@ public final class Generator {
     self.network = Network(accessToken: accessToken)
   }
 
-  func generatePublisher(packages: [XCRemoteSwiftPackageReference]) -> AnyPublisher<PackageLicense, Never> {
-    let publisher = PassthroughSubject<PackageLicense, Never>()
+  func fetchPackage(publisher: PassthroughSubject<PackageLicense, Never>, packages: [XCRemoteSwiftPackageReference]) {
     packages.forEach { (package) in
       guard let repositoryURLString = package.repositoryURL else {
         print("Skip package \(package.name ?? "??") which has no repository URL", to: &stderr)
@@ -119,7 +118,6 @@ public final class Generator {
         }
       }
     }
-    return publisher.eraseToAnyPublisher()
   }
 
   public func run(xcodeProjFilePath: String, outputFilePath: String) throws {
@@ -131,13 +129,14 @@ public final class Generator {
     
     print("There are \(packages.count) packages", to: &stderr)
 
-    let publisher = self.generatePublisher(packages: packages)
     var subscriptions = Set<AnyCancellable>()
 
     let dispatchGroup = DispatchGroup()
     dispatchGroup.enter()
     
-    publisher.collect(packages.count)
+    let publisher = PassthroughSubject<PackageLicense, Never>()
+    publisher
+      .collect(packages.count)
       .sink(receiveValue: { packageLicenses in
         let encoder = JSONEncoder()
         if let encoded = try? encoder.encode(packageLicenses) {
@@ -146,6 +145,8 @@ public final class Generator {
 //        print(packageLicenses)
         dispatchGroup.leave()
       }).store(in: &subscriptions)
+    
+    self.fetchPackage(publisher: publisher, packages: packages)
 
     dispatchGroup.notify(queue: .main) {
       print("Done", to: &stderr)
