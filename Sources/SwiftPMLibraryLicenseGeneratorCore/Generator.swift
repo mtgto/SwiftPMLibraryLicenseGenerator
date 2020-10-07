@@ -7,9 +7,15 @@ enum GeneratorError: Error {
   case unsupportedHost, badFormatURL
 }
 
+// Minimum definition of swift package of this project
+struct Package: Encodable {
+  let name: String
+  let repositoryURL: URL
+}
+
 // The result of fetch
 struct PackageLicense: Encodable {
-  let package: XCRemoteSwiftPackageReference
+  let package: Package
   let licenseInfo: Result<LicenseInfo, Error>
   
   enum CodingKeys: String, CodingKey {
@@ -86,23 +92,11 @@ public final class Generator {
     self.network = Network(accessToken: accessToken)
   }
 
-  func fetchPackage(publisher: PassthroughSubject<PackageLicense, Never>, packages: [XCRemoteSwiftPackageReference]) {
+  func fetchPackage(publisher: PassthroughSubject<PackageLicense, Never>, packages: [Package]) {
     packages.forEach { (package) in
-      guard let repositoryURLString = package.repositoryURL else {
-        print("Skip package \(package.name ?? "??") which has no repository URL", to: &stderr)
-        publisher.send(PackageLicense(package: package, licenseInfo: .failure(GeneratorError.badFormatURL)))
-        return
-      }
-      guard let repositoryURL = URL(string: repositoryURLString) else {
-        print(
-          "Skip package \(package.name ?? "??") which has invalid URL: \(repositoryURLString)",
-          to: &stderr)
-        publisher.send(PackageLicense(package: package, licenseInfo: .failure(GeneratorError.badFormatURL)))
-        return
-      }
       guard
         case .success((owner: let owner, name: let name)) = parseRepositoryURL(
-          repositoryURL: repositoryURL)
+          repositoryURL: package.repositoryURL)
       else {
         publisher.send(PackageLicense(package: package, licenseInfo: .failure(GeneratorError.badFormatURL)))
         return
@@ -119,10 +113,35 @@ public final class Generator {
       }
     }
   }
-
-  public func run(xcodeProjFilePath: String, outputFilePath: String) throws {
+  
+  func packagesFromXcodeproj(xcodeProjFilePath: String) throws -> [Package] {
     let xcodeproj = try XcodeProj(pathString: xcodeProjFilePath)
     guard let packages = try xcodeproj.pbxproj.rootProject()?.packages else {
+      print("There is no packages", to: &stderr)
+      return []
+    }
+    return packages.compactMap { package in
+      if let name = package.name, let repositoryURL = package.repositoryURL {
+        return Package(name: name, repositoryURL: URL(string: repositoryURL)!)
+      } else {
+        return nil
+      }
+    }
+  }
+  
+  func packagesFromPackageResolved(resolvedFilePath: String) -> [Package] {
+    return []
+  }
+
+  /**
+   * @param projectFilePath Path of Package.swift or YourProject.xcodeproj
+   * @param outputFilePath Path of export file
+   */
+  public func run(projectFilePath: String, outputFilePath: String) throws {
+    //let xcodeProjDirectory = URL(fileURLWithPath: xcodeProjDirectoryPath)
+    // Find Package.resolved
+    // Find xcodeproj file
+    guard let packages = try? self.packagesFromXcodeproj(xcodeProjFilePath: projectFilePath) else {
       print("There is no packages", to: &stderr)
       exit(EXIT_SUCCESS)
     }
