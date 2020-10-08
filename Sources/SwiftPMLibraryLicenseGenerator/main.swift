@@ -20,7 +20,8 @@ struct Options: ParsableArguments {
 let options = Options.parseOrExit()
 
 do {
-  try Generator().run(
+  let accessToken = ProcessInfo.processInfo.environment["GITHUB_TOKEN"] ?? ""
+  try Generator(githubAccessToken: accessToken).run(
     projectFilePath: options.projectFilePath, outputFilePath: options.outputFilePath)
 } catch {
   exit(EXIT_FAILURE)

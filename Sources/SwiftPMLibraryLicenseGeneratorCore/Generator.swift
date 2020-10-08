@@ -17,14 +17,14 @@ struct Package: Encodable {
 struct PackageLicense: Encodable {
   let package: Package
   let licenseInfo: Result<LicenseInfo, Error>
-  
+
   enum CodingKeys: String, CodingKey {
     case name
     case repositoryURL
     case error
     case licenseInfo
   }
-  
+
   func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(package.name, forKey: .name)
@@ -38,7 +38,8 @@ struct PackageLicense: Encodable {
       case GeneratorError.unsupportedHost:
         try container.encode("Currently, it supports github only", forKey: .error)
       case GeneratorError.badFormatURL:
-        try container.encode("repository URL of package has bad format or does not exists", forKey: .error)
+        try container.encode(
+          "repository URL of package has bad format or does not exists", forKey: .error)
       default:
         try container.encode(error.localizedDescription, forKey: .error)
       }
@@ -82,14 +83,9 @@ public final class Generator {
   private let arguments: [String]
   private let network: Network
 
-  public init(arguments: [String] = CommandLine.arguments) {
+  public init(githubAccessToken: String = "", arguments: [String] = CommandLine.arguments) {
     self.arguments = arguments
-    guard let accessToken = ProcessInfo.processInfo.environment["GITHUB_TOKEN"] else {
-      print("Error: env GITHUB_TOKEN is not set", to: &stderr)
-      exit(EXIT_FAILURE)
-    }
-
-    self.network = Network(accessToken: accessToken)
+    self.network = Network(accessToken: githubAccessToken)
   }
 
   func fetchPackage(publisher: PassthroughSubject<PackageLicense, Never>, packages: [Package]) {
@@ -98,7 +94,8 @@ public final class Generator {
         case .success((owner: let owner, name: let name)) = parseRepositoryURL(
           repositoryURL: package.repositoryURL)
       else {
-        publisher.send(PackageLicense(package: package, licenseInfo: .failure(GeneratorError.badFormatURL)))
+        publisher.send(
+          PackageLicense(package: package, licenseInfo: .failure(GeneratorError.badFormatURL)))
         return
       }
       self.network.getRepositoryLicenseConditions(owner: owner, name: name) { result in
@@ -113,7 +110,7 @@ public final class Generator {
       }
     }
   }
-  
+
   func packagesFromXcodeproj(xcodeProjFilePath: String) throws -> [Package] {
     let xcodeproj = try XcodeProj(pathString: xcodeProjFilePath)
     guard let packages = try xcodeproj.pbxproj.rootProject()?.packages else {
@@ -128,9 +125,14 @@ public final class Generator {
       }
     }
   }
-  
-  func packagesFromPackageResolved(resolvedFilePath: String) -> [Package] {
-    return []
+
+  func packagesFromPackageResolved(resolvedFilePath: String) throws -> [Package] {
+    let decoder = JSONDecoder()
+    let data = try Data(contentsOf: URL(fileURLWithPath: resolvedFilePath))
+    let resolved = try decoder.decode(ResolvedFileJSON.self, from: data)
+    return resolved.object.pins.map {
+      Package(name: $0.package, repositoryURL: $0.repositoryURL)
+    }
   }
 
   /**
@@ -145,14 +147,14 @@ public final class Generator {
       print("There is no packages", to: &stderr)
       exit(EXIT_SUCCESS)
     }
-    
+
     print("There are \(packages.count) packages", to: &stderr)
 
     var subscriptions = Set<AnyCancellable>()
 
     let dispatchGroup = DispatchGroup()
     dispatchGroup.enter()
-    
+
     let publisher = PassthroughSubject<PackageLicense, Never>()
     publisher
       .collect(packages.count)
@@ -161,10 +163,10 @@ public final class Generator {
         if let encoded = try? encoder.encode(packageLicenses) {
           try? encoded.write(to: URL(fileURLWithPath: outputFilePath))
         }
-//        print(packageLicenses)
+        //        print(packageLicenses)
         dispatchGroup.leave()
       }).store(in: &subscriptions)
-    
+
     self.fetchPackage(publisher: publisher, packages: packages)
 
     dispatchGroup.notify(queue: .main) {

@@ -9,7 +9,8 @@ let package = Package(
     .macOS(.v10_15)
   ],
   products: [
-    .executable(name: "swift-pm-library-license-generator", targets: ["SwiftPMLibraryLicenseGenerator"])
+    .executable(
+      name: "swift-pm-library-license-generator", targets: ["SwiftPMLibraryLicenseGenerator"])
   ],
   dependencies: [
     // Dependencies declare other packages that this package depends on.
@@ -29,7 +30,10 @@ let package = Package(
     // Targets can depend on other targets in this package, and on products in packages this package depends on.
     .target(
       name: "SwiftPMLibraryLicenseGenerator",
-      dependencies: ["SwiftPMLibraryLicenseGeneratorCore"]),
+      dependencies: ["SwiftPMLibraryLicenseGeneratorCore"],
+      resources: [
+        .copy("Resources")
+      ]),
     .target(
       name: "SwiftPMLibraryLicenseGeneratorCore",
       dependencies: [
@@ -38,6 +42,9 @@ let package = Package(
       exclude: ["schema.json", "query.graphql"]),
     .testTarget(
       name: "SwiftPMLibraryLicenseGeneratorTests",
-      dependencies: ["SwiftPMLibraryLicenseGenerator"]),
+      dependencies: ["SwiftPMLibraryLicenseGenerator"],
+      resources: [
+        .copy("Resources")
+      ]),
   ]
 )
