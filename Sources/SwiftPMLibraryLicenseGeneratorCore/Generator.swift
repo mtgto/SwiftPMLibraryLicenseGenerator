@@ -141,9 +141,12 @@ public final class Generator {
    */
   public func run(projectFilePath: String, outputFilePath: String) throws {
     //let xcodeProjDirectory = URL(fileURLWithPath: xcodeProjDirectoryPath)
-    // Find Package.resolved
-    // Find xcodeproj file
-    guard let packages = try? self.packagesFromXcodeproj(xcodeProjFilePath: projectFilePath) else {
+    let packages: [Package]
+    if projectFilePath.hasSuffix(".xcodeproj") {
+      packages = try self.packagesFromXcodeproj(xcodeProjFilePath: projectFilePath)
+    } else if projectFilePath.hasSuffix("Package.resolved") {
+      packages = try self.packagesFromPackageResolved(resolvedFilePath: projectFilePath)
+    } else {
       print("There is no packages", to: &stderr)
       exit(EXIT_SUCCESS)
     }
