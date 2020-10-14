@@ -1,6 +1,15 @@
 query getRepositoryLicenseConditions($owner: String!, $name: String!) {
   repository(owner: $owner, name: $name) {
-    name
+    object(expression: "HEAD") {
+      ... on Commit {
+        tree {
+          entries {
+            name
+            type
+          }
+        }
+      }
+    }
     licenseInfo {
       name
       conditions {
@@ -10,6 +19,16 @@ query getRepositoryLicenseConditions($owner: String!, $name: String!) {
       }
       implementation
       body
+    }
+  }
+}
+
+query getContent($owner: String!, $name: String!, $expression: String) {
+  repository(owner: $owner, name: $name) {
+    object(expression: $expression) {
+      ... on Blob {
+        text
+      }
     }
   }
 }
