@@ -38,16 +38,19 @@ If you don't have a token, create in github setting page: https://github.com/set
 
 ```console
 # Recommend
-$ GITHUB_TOKEN=xxxxxxx swift-pm-library-license-generator -o license.json /path/to/Package.resolved
+$ GITHUB_TOKEN=xxxxxxx swift-pm-library-license-generator --json -o license.json /path/to/Package.resolved
+$ GITHUB_TOKEN=xxxxxxx swift-pm-library-license-generator --rtf -o license.rtf /path/to/Package.resolved
 
 # If you don't have Package.resolved:
-$ GITHUB_TOKEN=xxxxxxx swift-pm-library-license-generator -o license.json /path/to/YourProject.pbxproj
+$ GITHUB_TOKEN=xxxxxxx swift-pm-library-license-generator --json -o license.json /path/to/YourProject.pbxproj
+$ GITHUB_TOKEN=xxxxxxx swift-pm-library-license-generator --rtf -o license.json /path/to/YourProject.pbxproj
 ```
 
 # Limitation
 
 - This application is only run macOS 10.15 or later.
 - Supports github packages only.
+- RTF format does not contains copyright notation for some licenses (Apache License, GPL, etc.)
 
 # Related
 
