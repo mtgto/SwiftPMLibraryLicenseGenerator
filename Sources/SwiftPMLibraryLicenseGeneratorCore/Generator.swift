@@ -21,7 +21,8 @@ struct Package: Encodable {
 // The result of fetch
 struct PackageLicense: Encodable {
   let package: Package
-  let repository: Result<Repository, Error>
+  let license: String? // content of license file
+  let licenseInfo: Result<LicenseInfo, Error>
 
   enum CodingKeys: String, CodingKey {
     case name
@@ -35,9 +36,9 @@ struct PackageLicense: Encodable {
     try container.encode(package.name, forKey: .name)
     try container.encode(package.repositoryURL, forKey: .repositoryURL)
 
-    switch self.repository {
-    case .success(let repository):
-      try container.encode(repository.licenseInfo, forKey: .licenseInfo)
+    switch self.licenseInfo {
+    case .success(let licenseInfo):
+      try container.encode(licenseInfo, forKey: .licenseInfo)
     case .failure(let error):
       switch error {
       case GeneratorError.unsupportedHost:
@@ -100,17 +101,30 @@ public final class Generator {
           repositoryURL: package.repositoryURL)
       else {
         publisher.send(
-          PackageLicense(package: package, repository: .failure(GeneratorError.badFormatURL)))
+          PackageLicense(package: package, license: nil, licenseInfo: .failure(GeneratorError.badFormatURL)))
         return
       }
       self.network.getRepositoryLicenseConditions(owner: owner, name: name) { result in
         switch result {
         case .success(let repository):
-          publisher.send(PackageLicense(package: package, repository: .success(repository)))
-          return
+          // TODO: Apache License needs to fetch NOTICE to print copyright of library.
+          // (LICENSE file of Apache License does not contain copyright itself)
+          if let licenseFile = repository.files.first(where: { $0 == "LICENSE" || $0.hasPrefix("LICENSE.") || $0 == "COPYING" }) {
+            debugPrint("Fetch \(licenseFile) from \(owner)/\(name)")
+            self.network.getContent(owner: owner, name: name, expression: "HEAD:\(licenseFile)") { result in
+              switch result {
+              case .success(let text):
+                publisher.send(PackageLicense(package: package, license: text, licenseInfo: .success(repository.licenseInfo)))
+              case .failure(let error):
+                publisher.send(PackageLicense(package: package, license: nil, licenseInfo: .failure(error)))
+              }
+            }
+          } else {
+            debugPrint("License file is not found in \(owner)/\(name)")
+            publisher.send(PackageLicense(package: package, license: nil, licenseInfo: .success(repository.licenseInfo)))
+          }
         case .failure(let error):
-          publisher.send(PackageLicense(package: package, repository: .failure(error)))
-          return
+          publisher.send(PackageLicense(package: package, license: nil, licenseInfo: .failure(error)))
         }
       }
     }
@@ -157,8 +171,8 @@ public final class Generator {
         let licenseNameAttributes: [NSAttributedString.Key: Any] = [.link: packageLicense.package.repositoryURL, .font: NSFont.boldSystemFont(ofSize: fontSize)]
         attributedString.append(NSAttributedString(string: "\(packageLicense.package.name)\n\n", attributes: licenseNameAttributes))
         let licenseBodyAttributes: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: fontSize)]
-        if case .success(let repository) = packageLicense.repository {
-          attributedString.append(NSAttributedString(string: "\(repository.licenseInfo.body)\n\n", attributes: licenseBodyAttributes))
+        if case .success(_) = packageLicense.licenseInfo {
+          attributedString.append(NSAttributedString(string: "\(packageLicense.license ?? "---- No license file found in repository ----")\n\n", attributes: licenseBodyAttributes))
         } else {
           attributedString.append(NSAttributedString(string: "---- Failed to fetch license information ----\n\n", attributes: licenseBodyAttributes))
         }
@@ -174,7 +188,7 @@ public final class Generator {
   
   public func exportTest(projectFilePath: String, outputFilePath: String, exportFormat: ExportFormat) throws {
     let packageLicenses: [PackageLicense] = [
-      PackageLicense(package: Package(name: "hogehoge", repositoryURL: URL(string: "https://example.com")!), repository: .failure(GeneratorError.badFormatURL))
+      PackageLicense(package: Package(name: "hogehoge", repositoryURL: URL(string: "https://example.com")!), license: nil, licenseInfo: .failure(GeneratorError.badFormatURL))
     ]
     try self.exportToFile(packageLicenses: packageLicenses, outputFilePath: outputFilePath, exportFormat: exportFormat)
   }

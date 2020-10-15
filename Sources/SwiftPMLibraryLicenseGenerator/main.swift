@@ -29,8 +29,8 @@ do {
   let accessToken = ProcessInfo.processInfo.environment["GITHUB_TOKEN"] ?? ""
   let exportFormat = options.rtf ? ExportFormat.rtf : ExportFormat.json
   try Generator(githubAccessToken: accessToken)
-    .exportTest(projectFilePath: options.projectFilePath, outputFilePath: options.outputFilePath, exportFormat: exportFormat)
-    //.run(projectFilePath: options.projectFilePath, outputFilePath: options.outputFilePath, exportFormat: exportFormat)
+    //.exportTest(projectFilePath: options.projectFilePath, outputFilePath: options.outputFilePath, exportFormat: exportFormat)
+    .run(projectFilePath: options.projectFilePath, outputFilePath: options.outputFilePath, exportFormat: exportFormat)
 } catch {
   exit(EXIT_FAILURE)
 }

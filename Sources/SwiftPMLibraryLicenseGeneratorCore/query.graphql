@@ -23,7 +23,7 @@ query getRepositoryLicenseConditions($owner: String!, $name: String!) {
   }
 }
 
-query getContent($owner: String!, $name: String!, $expression: String) {
+query getContent($owner: String!, $name: String!, $expression: String!) {
   repository(owner: $owner, name: $name) {
     object(expression: $expression) {
       ... on Blob {

@@ -53,6 +53,24 @@ class Network {
       }
     }
   }
+  
+  /**
+   * @param expression "HEAD:filename" format (git revision + ":" + path)
+   */
+  func getContent(owner: String, name: String, expression: String, resultHandler: @escaping (Result<String, Error>) -> Void) {
+    self.client.fetch(query: GetContentQuery(owner: owner, name: name, expression: expression)) { result in
+      switch result {
+      case .success(let graphQLResult):
+        if let text = graphQLResult.data?.repository?.object?.asBlob?.text {
+          resultHandler(.success(text))
+        } else {
+          resultHandler(.failure(APIError.invalid))
+        }
+      case .failure(let error):
+        resultHandler(.failure(error))
+      }
+    }
+  }
 }
 
 class GitHubInterceptorProvider: InterceptorProvider {

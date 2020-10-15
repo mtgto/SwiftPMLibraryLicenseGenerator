@@ -464,7 +464,7 @@ public final class GetContentQuery: GraphQLQuery {
   /// The raw GraphQL definition of this operation.
   public let operationDefinition: String =
     """
-    query getContent($owner: String!, $name: String!, $expression: String) {
+    query getContent($owner: String!, $name: String!, $expression: String!) {
       repository(owner: $owner, name: $name) {
         __typename
         object(expression: $expression) {
@@ -481,9 +481,9 @@ public final class GetContentQuery: GraphQLQuery {
 
   public var owner: String
   public var name: String
-  public var expression: String?
+  public var expression: String
 
-  public init(owner: String, name: String, expression: String? = nil) {
+  public init(owner: String, name: String, expression: String) {
     self.owner = owner
     self.name = name
     self.expression = expression
