@@ -19,5 +19,5 @@ struct ResolvedFilePackage: Decodable {
 struct ResolvedFilePackageState: Decodable {
   let branch: String?
   let revision: String
-  let version: String
+  let version: String?
 }
