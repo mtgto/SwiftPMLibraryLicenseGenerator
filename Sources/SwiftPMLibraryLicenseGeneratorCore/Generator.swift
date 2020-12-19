@@ -142,7 +142,7 @@ public final class Generator {
       } else {
         return nil
       }
-    }.sorted(by: { $0.name < $1.name })
+    }
   }
 
   func packagesFromPackageResolved(resolvedFilePath: String) throws -> [Package] {
@@ -151,7 +151,7 @@ public final class Generator {
     let resolved = try decoder.decode(ResolvedFileJSON.self, from: data)
     return resolved.object.pins.map {
       Package(name: $0.package, repositoryURL: $0.repositoryURL)
-    }.sorted(by: { $0.name < $1.name })
+    }
   }
   
   func shouldIncludeCopyright(licenseInfo: LicenseInfo) -> Bool {
@@ -219,7 +219,10 @@ public final class Generator {
     publisher
       .collect(packages.count)
       .sink(receiveValue: { packageLicenses in
-        try? self.exportToFile(packageLicenses: packageLicenses, outputFilePath: outputFilePath, exportFormat: exportFormat)
+        let sortedPackageLicenses = packageLicenses.sorted(by: {
+          $0.package.name.lowercased().split(separator: "/").last! < $1.package.name.lowercased().split(separator: "/").last!
+        })
+        try? self.exportToFile(packageLicenses: sortedPackageLicenses, outputFilePath: outputFilePath, exportFormat: exportFormat)
         dispatchGroup.leave()
       }).store(in: &subscriptions)
 
