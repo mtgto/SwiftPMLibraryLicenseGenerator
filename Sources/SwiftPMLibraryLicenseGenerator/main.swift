@@ -32,5 +32,6 @@ do {
     //.exportTest(projectFilePath: options.projectFilePath, outputFilePath: options.outputFilePath, exportFormat: exportFormat)
     .run(projectFilePath: options.projectFilePath, outputFilePath: options.outputFilePath, exportFormat: exportFormat)
 } catch {
+  print(error)
   exit(EXIT_FAILURE)
 }

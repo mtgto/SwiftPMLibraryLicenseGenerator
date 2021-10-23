@@ -43,7 +43,7 @@ $ GITHUB_TOKEN=xxxxxxx swift-pm-library-license-generator --rtf -o license.rtf /
 
 # If you don't have Package.resolved:
 $ GITHUB_TOKEN=xxxxxxx swift-pm-library-license-generator --json -o license.json /path/to/YourProject.pbxproj
-$ GITHUB_TOKEN=xxxxxxx swift-pm-library-license-generator --rtf -o license.json /path/to/YourProject.pbxproj
+$ GITHUB_TOKEN=xxxxxxx swift-pm-library-license-generator --rtf -o license.rtf /path/to/YourProject.pbxproj
 ```
 
 # Limitation
@@ -55,7 +55,7 @@ $ GITHUB_TOKEN=xxxxxxx swift-pm-library-license-generator --rtf -o license.json 
 # Related
 
 - [LicensePlist](https://github.com/mono0926/LicensePlist)
-  - It supports CocoaPods and Carthage, but does not support Swift PM yet.
+  - It supports CocoaPods and Carthage, and also Swift PM.
 
 # Development
 

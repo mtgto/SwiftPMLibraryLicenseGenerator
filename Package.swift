@@ -17,13 +17,13 @@ let package = Package(
     // .package(url: /* package url */, from: "1.0.0"),
     .package(
       name: "swift-argument-parser", url: "https://github.com/apple/swift-argument-parser",
-      .upToNextMinor(from: "0.3.1")),
+      .upToNextMinor(from: "1.0.1")),
     .package(
       name: "Apollo", url: "https://github.com/apollographql/apollo-ios.git",
-      .upToNextMinor(from: "0.34.1")),
+      .upToNextMinor(from: "0.49.1")),
     .package(
       name: "XcodeProj", url: "https://github.com/tuist/xcodeproj.git",
-      .upToNextMajor(from: "7.14.0")),
+      .upToNextMajor(from: "8.5.0")),
   ],
   targets: [
     // Targets are the basic building blocks of a package. A target can define a module or a test suite.
